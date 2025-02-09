@@ -1,7 +1,12 @@
-const { Client, Intents } = require('discord.js');
+const { Client, GatewayIntentBits } = require('discord.js');
 const cron = require('node-cron');  // To run tasks on a schedule
 
-const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES] });
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages
+    ]
+});
 
 const channelID = '1337115282761711721';  // The channel ID you specified
 const targetUserID = '540129267728515072';  // Replace with actual Discord user ID if needed
