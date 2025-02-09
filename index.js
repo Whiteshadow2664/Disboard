@@ -11,8 +11,13 @@ const client = new Client({
 const channelID = '1337115282761711721';  // The channel ID you specified
 const targetUserID = '540129267728515072';  // Replace with actual Discord user ID if needed
 
-// Bot login token
-const token = 'YOUR_BOT_TOKEN'; // Replace with your actual bot token
+// Bot login token from environment variable
+const token = process.env.BOT_TOKEN; // Make sure to set the BOT_TOKEN environment variable in Render
+
+if (!token) {
+    console.error('Bot token not found in environment variables');
+    process.exit(1);  // Exit the process if the token is not found
+}
 
 client.once('ready', () => {
     console.log('Bot is online!');
