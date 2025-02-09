@@ -1,6 +1,12 @@
 const { Client, GatewayIntentBits } = require('discord.js');
 const cron = require('node-cron');  // To run tasks on a schedule
+const express = require('express');  // Express to create a web server
 
+// Create an express app
+const app = express();
+const port = 3000;
+
+// Your Discord bot setup
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -19,6 +25,7 @@ if (!token) {
     process.exit(1);  // Exit the process if the token is not found
 }
 
+// When the bot is ready
 client.once('ready', () => {
     console.log('Bot is online!');
     
@@ -28,6 +35,7 @@ client.once('ready', () => {
     });
 });
 
+// Function to send bump message
 function sendBumpMessage() {
     const channel = client.channels.cache.get(channelID);
     if (channel) {
@@ -37,4 +45,15 @@ function sendBumpMessage() {
     }
 }
 
+// Set up a simple route to confirm server is up
+app.get('/', (req, res) => {
+    res.send('Bot is running!');
+});
+
+// Start the web server
+app.listen(port, () => {
+    console.log(`Web server listening at http://localhost:${port}`);
+});
+
+// Log in to Discord
 client.login(token);
