@@ -30,7 +30,7 @@ client.once('ready', () => {
     console.log('Bot is online!');
     
     // Schedule a task to send the message every 5 minutes
-    cron.schedule('*/5 * * * *', () => {
+    cron.schedule('*/2 * * * *', () => {
         sendBumpMessage();
     });
 });
