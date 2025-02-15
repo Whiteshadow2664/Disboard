@@ -1,16 +1,13 @@
 {
-  "name": "discord-bot",
+  "name": "neon-to-supabase-migration",
   "version": "1.0.0",
-  "description": "A bot that sends a bump message every 5 minutes",
-  "main": "index.js",
+  "description": "Migrate data from NeonTech PostgreSQL to Supabase",
+  "main": "exportData.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node exportData.js && node importData.js"
   },
   "dependencies": {
-    "discord.js": "^14.6.0",
-    "node-cron": "^3.0.0",
-    "express": "^4.17.1"
-  },
-  "author": "",
-  "license": "ISC"
+    "pg": "^8.11.1",
+    "dotenv": "^16.3.1"
+  }
 }
