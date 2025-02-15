@@ -1,10 +1,10 @@
 {
   "name": "neon-to-supabase-migration",
   "version": "1.0.0",
-  "description": "Migrate data from NeonTech PostgreSQL to Supabase",
-  "main": "exportData.js",
+  "description": "Migrate mod_rank and leaderboard from NeonTech to Supabase",
+  "main": "migrate.js",
   "scripts": {
-    "start": "node exportData.js && node importData.js"
+    "start": "node migrate.js"
   },
   "dependencies": {
     "pg": "^8.11.1",
