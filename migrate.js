@@ -1,25 +1,34 @@
 require('dotenv').config();
 const { Pool } = require('pg');
 
-const neonPool = new Pool({ connectionString: process.env.NEON_DATABASE_URL, ssl: { rejectUnauthorized: false } });
-const supabasePool = new Pool({ connectionString: process.env.SUPABASE_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+// Old NeonTech database (source)
+const oldNeonPool = new Pool({ 
+    connectionString: process.env.OLD_NEON_DATABASE_URL, 
+    ssl: { rejectUnauthorized: false } 
+});
+
+// New NeonTech database (destination)
+const newNeonPool = new Pool({ 
+    connectionString: process.env.NEW_NEON_DATABASE_URL, 
+    ssl: { rejectUnauthorized: false } 
+});
 
 async function migrateTable(tableName, columns) {
     try {
         const createTableQuery = `CREATE TABLE IF NOT EXISTS ${tableName} (${columns})`;
-        await supabasePool.query(createTableQuery);
-        console.log(`✅ Table '${tableName}' checked/created in Supabase.`);
+        await newNeonPool.query(createTableQuery);
+        console.log(`✅ Table '${tableName}' checked/created in the new NeonTech database.`);
 
-        const { rows } = await neonPool.query(`SELECT * FROM ${tableName}`);
+        const { rows } = await oldNeonPool.query(`SELECT * FROM ${tableName}`);
         console.log(`📥 Fetching data from '${tableName}'... Found ${rows.length} records.`);
 
         for (const row of rows) {
-            const columns = Object.keys(row).join(', ');
+            const columnNames = Object.keys(row).join(', ');
             const values = Object.values(row);
             const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
 
-            const insertQuery = `INSERT INTO ${tableName} (${columns}) VALUES (${placeholders}) ON CONFLICT DO NOTHING`;
-            await supabasePool.query(insertQuery, values);
+            const insertQuery = `INSERT INTO ${tableName} (${columnNames}) VALUES (${placeholders}) ON CONFLICT DO NOTHING`;
+            await newNeonPool.query(insertQuery, values);
         }
 
         console.log(`✅ Data migrated successfully for '${tableName}'.`);
@@ -29,7 +38,7 @@ async function migrateTable(tableName, columns) {
 }
 
 (async () => {
-    console.log("🚀 Starting migration from NeonTech to Supabase...");
+    console.log("🚀 Starting migration from old NeonTech database to new NeonTech database...");
 
     await migrateTable('mod_rank', `
         user_id TEXT PRIMARY KEY,
@@ -48,6 +57,6 @@ async function migrateTable(tableName, columns) {
     `);
 
     console.log("🎉 Migration complete! Closing connections...");
-    await neonPool.end();
-    await supabasePool.end();
+    await oldNeonPool.end();
+    await newNeonPool.end();
 })();
