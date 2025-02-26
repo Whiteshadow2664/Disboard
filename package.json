@@ -1,7 +1,7 @@
 {
-  "name": "neon-to-supabase-migration",
+  "name": "neon-to-neon-migration",
   "version": "1.0.0",
-  "description": "Migrate mod_rank and leaderboard from NeonTech to Supabase",
+  "description": "Migrate mod_rank and leaderboard from old NeonTech database to new NeonTech database",
   "main": "migrate.js",
   "scripts": {
     "start": "node migrate.js"
