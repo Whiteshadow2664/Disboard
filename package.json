@@ -1,13 +1,14 @@
 {
-  "name": "neon-to-neon-migration",
+  "name": "neon-to-sqlite-migration",
   "version": "1.0.0",
-  "description": "Migrate mod_rank and leaderboard from old NeonTech database to new NeonTech database",
+  "description": "Migrate mod_rank and leaderboard from NeonTech PostgreSQL to SQLite",
   "main": "migrate.js",
   "scripts": {
     "start": "node migrate.js"
   },
   "dependencies": {
     "pg": "^8.11.1",
+    "sqlite3": "^5.1.6",
     "dotenv": "^16.3.1"
   }
 }
