@@ -21,34 +21,37 @@ async function migrateTable() {
     const tableName = 'bumps';
     const createTableSQL = `
         CREATE TABLE IF NOT EXISTS bumps (
-            user_id TEXT PRIMARY KEY,
+            userid TEXT PRIMARY KEY,
             username TEXT NOT NULL,
-            bumps INTEGER NOT NULL DEFAULT 0,
-            last_bump TEXT NOT NULL
+            count INTEGER NOT NULL DEFAULT 0
         )
     `;
 
     try {
         // Create table in SQLite
-        sqliteDb.run(createTableSQL, (err) => {
-            if (err) {
-                console.error(`❌ Error creating '${tableName}' table in SQLite:`, err.message);
-                return;
-            }
-            console.log(`✅ Table '${tableName}' checked/created in SQLite.`);
+        await new Promise((resolve, reject) => {
+            sqliteDb.run(createTableSQL, (err) => {
+                if (err) {
+                    console.error(`❌ Error creating '${tableName}' table in SQLite:`, err.message);
+                    reject(err);
+                } else {
+                    console.log(`✅ Table '${tableName}' checked/created in SQLite.`);
+                    resolve();
+                }
+            });
         });
 
-        // Fetch data from PostgreSQL and replace NULL bumps with 0
-        const { rows } = await pgPool.query(`SELECT user_id, username, COALESCE(bumps, 0) AS bumps, last_bump FROM ${tableName}`);
+        // Fetch data from PostgreSQL (Make sure to use the correct column names)
+        const { rows } = await pgPool.query(`SELECT userid, username, COALESCE(count, 0) AS count FROM ${tableName}`);
         console.log(`📥 Fetching data from '${tableName}'... Found ${rows.length} records.`);
 
         // Insert data into SQLite
-        const insertQuery = `INSERT INTO bumps (user_id, username, bumps, last_bump) VALUES (?, ?, ?, ?)`;
+        const insertQuery = `INSERT INTO bumps (userid, username, count) VALUES (?, ?, ?)`;
 
         sqliteDb.serialize(() => {
             const stmt = sqliteDb.prepare(insertQuery);
             for (const row of rows) {
-                stmt.run(row.user_id, row.username, row.bumps, row.last_bump || '1970-01-01 00:00:00', (err) => {
+                stmt.run(row.userid, row.username, row.count, (err) => {
                     if (err) {
                         console.error(`❌ Error inserting into '${tableName}':`, err.message);
                     }
