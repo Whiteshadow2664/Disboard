@@ -23,8 +23,8 @@ async function migrateTable() {
         CREATE TABLE IF NOT EXISTS bumps (
             user_id TEXT PRIMARY KEY,
             username TEXT NOT NULL,
-            bumps INTEGER NOT NULL,
-            last_bump TIMESTAMP NOT NULL
+            bumps INTEGER NOT NULL DEFAULT 0,
+            last_bump TEXT NOT NULL
         )
     `;
 
@@ -38,8 +38,8 @@ async function migrateTable() {
             console.log(`✅ Table '${tableName}' checked/created in SQLite.`);
         });
 
-        // Fetch data from PostgreSQL
-        const { rows } = await pgPool.query(`SELECT * FROM ${tableName}`);
+        // Fetch data from PostgreSQL and replace NULL bumps with 0
+        const { rows } = await pgPool.query(`SELECT user_id, username, COALESCE(bumps, 0) AS bumps, last_bump FROM ${tableName}`);
         console.log(`📥 Fetching data from '${tableName}'... Found ${rows.length} records.`);
 
         // Insert data into SQLite
@@ -48,7 +48,7 @@ async function migrateTable() {
         sqliteDb.serialize(() => {
             const stmt = sqliteDb.prepare(insertQuery);
             for (const row of rows) {
-                stmt.run(row.user_id, row.username, row.bumps, row.last_bump, (err) => {
+                stmt.run(row.user_id, row.username, row.bumps, row.last_bump || '1970-01-01 00:00:00', (err) => {
                     if (err) {
                         console.error(`❌ Error inserting into '${tableName}':`, err.message);
                     }
