@@ -1,24 +1,22 @@
 require('dotenv').config();
 const { Pool } = require('pg');
-const sqlite3 = require('sqlite3').verbose();
 
-// PostgreSQL (NeonTech) database connection
-const pgPool = new Pool({
-    connectionString: process.env.NEON_DATABASE_URL,
+// PostgreSQL connection to OLD NeonTech database
+const oldPgPool = new Pool({
+    connectionString: process.env.OLD_NEON_DATABASE_URL,
     ssl: { rejectUnauthorized: false }
 });
 
-// SQLite database connection
-const sqliteDb = new sqlite3.Database('database.sqlite', (err) => {
-    if (err) {
-        console.error('❌ Error opening SQLite database:', err.message);
-    } else {
-        console.log('✅ Connected to SQLite database.');
-    }
+// PostgreSQL connection to NEW NeonTech database
+const newPgPool = new Pool({
+    connectionString: process.env.NEW_NEON_DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
 });
 
 async function migrateTable() {
     const tableName = 'bumps';
+
+    // Create table SQL (optional, if not already present in the new database)
     const createTableSQL = `
         CREATE TABLE IF NOT EXISTS bumps (
             userid TEXT PRIMARY KEY,
@@ -28,50 +26,46 @@ async function migrateTable() {
     `;
 
     try {
-        // Create table in SQLite
-        await new Promise((resolve, reject) => {
-            sqliteDb.run(createTableSQL, (err) => {
-                if (err) {
-                    console.error(`❌ Error creating '${tableName}' table in SQLite:`, err.message);
-                    reject(err);
-                } else {
-                    console.log(`✅ Table '${tableName}' checked/created in SQLite.`);
-                    resolve();
-                }
-            });
-        });
+        console.log(`🚀 Starting migration for table '${tableName}'`);
 
-        // Fetch data from PostgreSQL (Make sure to use the correct column names)
-        const { rows } = await pgPool.query(`SELECT userid, username, COALESCE(count, 0) AS count FROM ${tableName}`);
-        console.log(`📥 Fetching data from '${tableName}'... Found ${rows.length} records.`);
+        // Step 1: Ensure the table exists in the NEW database
+        await newPgPool.query(createTableSQL);
+        console.log(`✅ Table '${tableName}' checked/created in NEW NeonTech database.`);
 
-        // Insert data into SQLite
-        const insertQuery = `INSERT INTO bumps (userid, username, count) VALUES (?, ?, ?)`;
+        // Step 2: Fetch data from the OLD database
+        const { rows } = await oldPgPool.query(`SELECT userid, username, COALESCE(count, 0) AS count FROM ${tableName}`);
+        console.log(`📥 Retrieved ${rows.length} records from OLD NeonTech database.`);
 
-        sqliteDb.serialize(() => {
-            const stmt = sqliteDb.prepare(insertQuery);
-            for (const row of rows) {
-                stmt.run(row.userid, row.username, row.count, (err) => {
-                    if (err) {
-                        console.error(`❌ Error inserting into '${tableName}':`, err.message);
-                    }
-                });
+        // Step 3: Insert data into the NEW database
+        const insertQuery = `
+            INSERT INTO bumps (userid, username, count)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (userid)
+            DO UPDATE SET
+                username = EXCLUDED.username,
+                count = EXCLUDED.count
+        `;
+
+        for (const row of rows) {
+            try {
+                await newPgPool.query(insertQuery, [row.userid, row.username, row.count]);
+            } catch (insertErr) {
+                console.error(`❌ Error inserting userID '${row.userid}' into NEW database:`, insertErr.message);
             }
-            stmt.finalize();
-        });
+        }
 
-        console.log(`✅ Data migrated successfully for '${tableName}'.`);
+        console.log(`✅ Data migrated successfully for table '${tableName}'.`);
     } catch (err) {
-        console.error(`❌ Error migrating '${tableName}':`, err.message);
+        console.error(`❌ Error migrating table '${tableName}':`, err.message);
     }
 }
 
 (async () => {
-    console.log("🚀 Starting migration from NeonTech (PostgreSQL) to SQLite...");
+    console.log("🚀 Starting full migration from OLD NeonTech DB to NEW NeonTech DB...");
 
     await migrateTable();
 
     console.log("🎉 Migration complete! Closing connections...");
-    pgPool.end();
-    sqliteDb.close();
+    await oldPgPool.end();
+    await newPgPool.end();
 })();
