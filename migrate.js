@@ -1,71 +1,62 @@
 require('dotenv').config();
 const { Pool } = require('pg');
 
-// PostgreSQL connection to OLD NeonTech database
-const oldPgPool = new Pool({
-    connectionString: process.env.OLD_NEON_DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+// Old NeonTech database (source)
+const oldNeonPool = new Pool({ 
+    connectionString: process.env.OLD_NEON_DATABASE_URL, 
+    ssl: { rejectUnauthorized: false } 
 });
 
-// PostgreSQL connection to NEW NeonTech database
-const newPgPool = new Pool({
-    connectionString: process.env.NEW_NEON_DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+// New NeonTech database (destination)
+const newNeonPool = new Pool({ 
+    connectionString: process.env.NEW_NEON_DATABASE_URL, 
+    ssl: { rejectUnauthorized: false } 
 });
 
-async function migrateTable() {
-    const tableName = 'bumps';
-
-    // Create table SQL (optional, if not already present in the new database)
-    const createTableSQL = `
-        CREATE TABLE IF NOT EXISTS bumps (
-            userid TEXT PRIMARY KEY,
-            username TEXT NOT NULL,
-            count INTEGER NOT NULL DEFAULT 0
-        )
-    `;
-
+async function migrateTable(tableName, columns) {
     try {
-        console.log(`🚀 Starting migration for table '${tableName}'`);
+        const createTableQuery = `CREATE TABLE IF NOT EXISTS ${tableName} (${columns})`;
+        await newNeonPool.query(createTableQuery);
+        console.log(`✅ Table '${tableName}' checked/created in the new NeonTech database.`);
 
-        // Step 1: Ensure the table exists in the NEW database
-        await newPgPool.query(createTableSQL);
-        console.log(`✅ Table '${tableName}' checked/created in NEW NeonTech database.`);
-
-        // Step 2: Fetch data from the OLD database
-        const { rows } = await oldPgPool.query(`SELECT userid, username, COALESCE(count, 0) AS count FROM ${tableName}`);
-        console.log(`📥 Retrieved ${rows.length} records from OLD NeonTech database.`);
-
-        // Step 3: Insert data into the NEW database
-        const insertQuery = `
-            INSERT INTO bumps (userid, username, count)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (userid)
-            DO UPDATE SET
-                username = EXCLUDED.username,
-                count = EXCLUDED.count
-        `;
+        const { rows } = await oldNeonPool.query(`SELECT * FROM ${tableName}`);
+        console.log(`📥 Fetching data from '${tableName}'... Found ${rows.length} records.`);
 
         for (const row of rows) {
-            try {
-                await newPgPool.query(insertQuery, [row.userid, row.username, row.count]);
-            } catch (insertErr) {
-                console.error(`❌ Error inserting userID '${row.userid}' into NEW database:`, insertErr.message);
-            }
+            const columnNames = Object.keys(row).join(', ');
+            const values = Object.values(row);
+            const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+
+            const insertQuery = `INSERT INTO ${tableName} (${columnNames}) VALUES (${placeholders}) ON CONFLICT DO NOTHING`;
+            await newNeonPool.query(insertQuery, values);
         }
 
-        console.log(`✅ Data migrated successfully for table '${tableName}'.`);
+        console.log(`✅ Data migrated successfully for '${tableName}'.`);
     } catch (err) {
-        console.error(`❌ Error migrating table '${tableName}':`, err.message);
+        console.error(`❌ Error migrating '${tableName}':`, err);
     }
 }
 
 (async () => {
-    console.log("🚀 Starting full migration from OLD NeonTech DB to NEW NeonTech DB...");
+    console.log("🚀 Starting migration from old NeonTech database to new NeonTech database...");
 
-    await migrateTable();
+    await migrateTable('mod_rank', `
+        user_id TEXT PRIMARY KEY,
+        username TEXT NOT NULL,
+        xp INTEGER NOT NULL,
+        joined_at TIMESTAMP NOT NULL
+    `);
+
+    await migrateTable('leaderboard', `
+        id SERIAL PRIMARY KEY,
+        username TEXT NOT NULL,
+        language TEXT NOT NULL,
+        level TEXT NOT NULL,
+        quizzes INTEGER NOT NULL,
+        points INTEGER NOT NULL
+    `);
 
     console.log("🎉 Migration complete! Closing connections...");
-    await oldPgPool.end();
-    await newPgPool.end();
+    await oldNeonPool.end();
+    await newNeonPool.end();
 })();
