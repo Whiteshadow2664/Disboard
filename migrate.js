@@ -27,7 +27,7 @@ async function migrateTable(tableName, columns) {
             const values = Object.values(row);
             const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
 
-            const insertQuery = `INSERT INTO ${tableName} (${columnNames}) VALUES (${placeholders}) ON CONFLICT DO NOTHING`;
+            const insertQuery = `INSERT INTO ${tableName} (${columnNames}) VALUES (${placeholders}) ON CONFLICT (userId) DO NOTHING`;
             await newNeonPool.query(insertQuery, values);
         }
 
@@ -40,20 +40,10 @@ async function migrateTable(tableName, columns) {
 (async () => {
     console.log("🚀 Starting migration from old NeonTech database to new NeonTech database...");
 
-    await migrateTable('mod_rank', `
-        user_id TEXT PRIMARY KEY,
-        username TEXT NOT NULL,
-        xp INTEGER NOT NULL,
-        joined_at TIMESTAMP NOT NULL
-    `);
-
-    await migrateTable('leaderboard', `
-        id SERIAL PRIMARY KEY,
-        username TEXT NOT NULL,
-        language TEXT NOT NULL,
-        level TEXT NOT NULL,
-        quizzes INTEGER NOT NULL,
-        points INTEGER NOT NULL
+    await migrateTable('bumps', `
+        userId TEXT PRIMARY KEY,
+        username TEXT,
+        count INTEGER DEFAULT 0
     `);
 
     console.log("🎉 Migration complete! Closing connections...");
